@@ -1,19 +1,17 @@
-FROM alpine/git as clone
-ARG url 
+FROM maven:3.6.3-jdk-8 AS build-env
 WORKDIR /app
-RUN git clone ${url} 
 
-FROM maven:3.5-jdk-8-alpine as build
-ARG project 
-WORKDIR /app
-COPY --from=clone /app/${project} /app
-RUN mvn install
+COPY pom.xml ./
+RUN mvn dependency:go-offline
+RUN mvn spring-javaformat:help
+
+COPY . ./
+RUN mvn spring-javaformat:apply
+RUN mvn package -DfinalName=petclinic
 
 FROM openjdk:8-jre-alpine
-ARG artifactid
-ARG version
-ENV artifact ${artifactid}-${version}.jar 
-WORKDIR /app
-COPY --from=build /app/target/${artifact} /app
 EXPOSE 8080
-CMD ["java -jar ${artifact}"] 
+WORKDIR /app
+
+COPY --from=build-env /app/target/petclinic.jar ./petclinic.jar
+CMD ["/usr/bin/java", "-jar", "/app/petclinic.jar"]
